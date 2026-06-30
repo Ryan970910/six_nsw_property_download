@@ -284,6 +284,75 @@ class UploadRowsResult:
     skipped_rows: list[dict[str, Any]]
 
 
+@dataclass(frozen=True)
+class DatRowsCheckResult:
+    copied_rows: int
+    existing_rows: list[dict[str, Any]]
+
+    @property
+    def new_rows(self) -> int:
+        return self.copied_rows - len(self.existing_rows)
+
+
+def check_dat_rows_against_db(
+    config: PostgresConfig,
+    rows: Iterable[dict[str, object]],
+    *,
+    target_table: str = DEFAULT_PROPERTY_TABLE,
+    columns: Iterable[str] = UPLOAD_COLUMNS,
+) -> DatRowsCheckResult:
+    import psycopg
+
+    insert_columns = list(columns)
+    for column in insert_columns:
+        if column not in OUTPUT_COLUMNS:
+            raise ValueError(f"Unknown output column for upload: {column}")
+
+    table_sql = quote_qualified_identifier(target_table)
+    temp_table_sql = quote_identifier("six_weekly_dat_check_temp")
+    columns_sql = ", ".join(quote_identifier(column) for column in insert_columns)
+    copy_sql = f"COPY {temp_table_sql} ({columns_sql}) FROM STDIN"
+    dat_duplicate_predicate = (
+        "t.property_number IS NULL "
+        "AND t.url_property_id IS NOT DISTINCT FROM s.url_property_id "
+        "AND t.sale_date IS NOT DISTINCT FROM s.sale_date "
+        "AND t.sale_price IS NOT DISTINCT FROM s.sale_price "
+        "AND COALESCE(t.dealing_number, '') = COALESCE(s.dealing_number, '')"
+    )
+    existing_sql = (
+        f"SELECT {columns_sql} "
+        f"FROM {temp_table_sql} s "
+        f"WHERE EXISTS (SELECT 1 FROM {table_sql} t WHERE {dat_duplicate_predicate})"
+    )
+
+    copied = 0
+    imported_at = datetime.now(HONG_KONG_TZ)
+    logger.info("weekly_dat_check_start target_table=%s", target_table)
+    with psycopg.connect(config.connection_info()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"CREATE TEMP TABLE {temp_table_sql} (LIKE {table_sql} INCLUDING DEFAULTS) ON COMMIT DROP")
+            with cur.copy(copy_sql) as copy:
+                for row in rows:
+                    values = [coerce_upload_value(column, row.get(column), imported_at) for column in insert_columns]
+                    copy.write_row(values)
+                    copied += 1
+            if copied == 0:
+                conn.commit()
+                return DatRowsCheckResult(copied_rows=0, existing_rows=[])
+            cur.execute(existing_sql)
+            existing_rows = [dict(zip(insert_columns, row, strict=True)) for row in cur.fetchall()]
+        conn.commit()
+
+    logger.info(
+        "weekly_dat_check_complete target_table=%s copied_rows=%s existing_rows=%s new_rows=%s",
+        target_table,
+        copied,
+        len(existing_rows),
+        copied - len(existing_rows),
+    )
+    return DatRowsCheckResult(copied_rows=copied, existing_rows=existing_rows)
+
+
 def upload_dat_rows_with_skip_report(
     config: PostgresConfig,
     rows: Iterable[dict[str, object]],

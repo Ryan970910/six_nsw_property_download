@@ -15,7 +15,7 @@ from six_nsw_property_download.db import DEFAULT_KEYRING_SERVICE, DEFAULT_PROPER
 from six_nsw_property_download.env import load_env_files
 from six_nsw_property_download.logging_config import setup_logging
 from six_nsw_property_download.weekly_dat import discover_weekly_zip_dates
-from six_nsw_property_download.weekly_pipeline import run_weekly_dat_upload
+from six_nsw_property_download.weekly_pipeline import check_weekly_dat_new_records, run_weekly_dat_upload
 
 
 def main() -> None:
@@ -27,6 +27,7 @@ def main() -> None:
     parser.add_argument("--list", action="store_true", help="List available weekly DAT dates and exit.")
     parser.add_argument("--week", action="append", type=parse_iso_date, help="Week date to download, for example 2026-06-29. Can be repeated.")
     parser.add_argument("--latest", action="store_true", help="Download only the latest week listed on the website.")
+    parser.add_argument("--dry-run", action="store_true", help="Check how many rows are new without inserting any records.")
     parser.add_argument("--work-dir", default="data\\valuation_weekly", help="D-drive work directory for ZIP cache and skipped-row reports.")
     parser.add_argument("--no-keep-zip", action="store_true", help="Do not keep downloaded weekly ZIP files.")
     parser.add_argument("--target-table", default=DEFAULT_PROPERTY_TABLE, help="Target PostgreSQL table.")
@@ -40,6 +41,32 @@ def main() -> None:
     if args.list:
         dates = discover_weekly_zip_dates()
         print("\n".join(date.isoformat() for date in dates))
+        return
+
+    if args.dry_run:
+        if not args.week:
+            parser.error("--dry-run requires at least one --week.")
+        result = check_weekly_dat_new_records(
+            build_db_config(args),
+            target_table=args.target_table,
+            weeks=args.week,
+            work_dir=Path(args.work_dir),
+            keep_zip=not args.no_keep_zip,
+        )
+        print(
+            f"Weekly DAT dry-run complete for {', '.join(week.isoformat() for week in result.weeks)}; "
+            f"new {result.new_rows} row(s), existing {result.existing_rows} row(s), "
+            f"uploadable {result.uploadable_rows} row(s), parsed {result.parsed_rows} row(s), "
+            f"read {result.downloaded_files} DAT file(s), skipped {result.skipped_rows} row(s)."
+        )
+        for week in result.week_results:
+            print(
+                f"{week['week']}: new={week['new_rows']}, existing={week['existing_rows']}, "
+                f"uploadable={week['uploadable_rows']}, parsed={week['parsed_rows']}, "
+                f"source_duplicates={week['source_duplicate_rows']}, invalid={week['invalid_rows']}"
+            )
+        if result.skipped_report:
+            print(f"Dry-run skipped-row report: {result.skipped_report}")
         return
 
     result = run_weekly_dat_upload(

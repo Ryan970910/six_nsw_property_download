@@ -1,0 +1,100 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run all property downloads and upload (16 workers)",
+      "type": "shell",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+      "args": [
+        "-m",
+        "six_nsw_property_download.cli",
+        "db-upload",
+        "--log-file",
+        "logs\\property_download.log",
+        "--log-level",
+        "INFO",
+        "--workers",
+        "16",
+        "--upload-workers",
+        "1",
+        "--upload-batch-rows",
+        "10000",
+        "--progress-interval",
+        "1000",
+        "--skipped-output",
+        "data\\normalized\\skipped.csv",
+        "--failed-output",
+        "data\\normalized\\failed.csv"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": false
+      },
+      "runOptions": {
+        "reevaluateOnRerun": true
+      }
+    },
+    {
+      "label": "Weekly DAT upload first run (22 Jun and 29 Jun 2026)",
+      "type": "shell",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+      "args": [
+        "scripts\\weekly_dat_upload.py",
+        "--week",
+        "2026-06-22",
+        "--week",
+        "2026-06-29",
+        "--work-dir",
+        "data\\valuation_weekly",
+        "--log-file",
+        "logs\\weekly_dat_first_run.log",
+        "--log-level",
+        "INFO"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": false
+      },
+      "runOptions": {
+        "reevaluateOnRerun": true
+      }
+    },
+    {
+      "label": "Weekly DAT upload latest week",
+      "type": "shell",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+      "args": [
+        "scripts\\weekly_dat_upload.py",
+        "--latest",
+        "--work-dir",
+        "data\\valuation_weekly",
+        "--log-file",
+        "logs\\weekly_dat_upload.log",
+        "--log-level",
+        "INFO"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": false
+      },
+      "runOptions": {
+        "reevaluateOnRerun": true
+      }
+    }
+  ]
+}

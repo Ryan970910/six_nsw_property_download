@@ -167,8 +167,9 @@ def parse_b_record(fields: list[str], *, source_file: str, downloaded_at: dateti
     property_id = _parse_int(_field(fields, 2))
     sale_record_number = _field(fields, 3)
     extraction_date = _parse_dat_datetime_date(_field(fields, 4))
-    unit_num = clean_text(_field(fields, 5))
-    house_num = clean_text(" ".join(part for part in [_field(fields, 7), _field(fields, 6)] if part))
+    property_name = clean_text(_field(fields, 5))
+    unit_num = clean_text(_field(fields, 6))
+    house_num = clean_text(_field(fields, 7))
     street_name = clean_text(_field(fields, 8))
     suburb = clean_text(_field(fields, 9))
     postcode = clean_text(_field(fields, 10))
@@ -211,6 +212,7 @@ def parse_b_record(fields: list[str], *, source_file: str, downloaded_at: dateti
         "url_property_id": str(property_id or ""),
         "sale_record_number": sale_record_number,
         "extraction_date": extraction_date,
+        "property_name": property_name,
         "unit_num": unit_num,
         "house_num": house_num,
         "street_name": street_name,

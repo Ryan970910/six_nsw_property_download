@@ -2,10 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { SpreadsheetFile, Workbook } from "@oai/artifact-tool";
 
-const inputCsv = path.resolve("outputs/weekly_dat_new_records/weekly_dat_new_records_20260504_20260615.csv");
-const summaryCsv = path.resolve("outputs/weekly_dat_new_records/weekly_dat_new_records_20260504_20260615.summary.csv");
+const versionSuffix = process.argv[2] || "";
+const baseName = `weekly_dat_new_records_20260504_20260615${versionSuffix}`;
+const inputCsv = path.resolve(`outputs/weekly_dat_new_records/${baseName}.csv`);
+const summaryCsv = path.resolve(`outputs/weekly_dat_new_records/${baseName}.summary.csv`);
 const outputDir = path.resolve("outputs/weekly_dat_new_records");
-const outputPath = path.join(outputDir, "weekly_dat_new_records_20260504_20260615.xlsx");
+const outputPath = path.join(outputDir, `${baseName}.xlsx`);
 
 function columnLetter(indexZeroBased) {
   let n = indexZeroBased + 1;

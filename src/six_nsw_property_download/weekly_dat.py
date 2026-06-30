@@ -251,9 +251,19 @@ def dat_duplicate_key(row: dict[str, Any]) -> tuple[str, str, str, str]:
     return (
         str(row.get("url_property_id") or ""),
         str(row.get("sale_date") or ""),
-        str(row.get("sale_price") or ""),
+        normalize_decimal_key(row.get("sale_price")),
         str(row.get("dealing_number") or ""),
     )
+
+
+def normalize_decimal_key(value: Any) -> str:
+    if value in (None, ""):
+        return ""
+    try:
+        decimal_value = value if isinstance(value, Decimal) else Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return str(value)
+    return format(decimal_value.normalize(), "f")
 
 
 def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:

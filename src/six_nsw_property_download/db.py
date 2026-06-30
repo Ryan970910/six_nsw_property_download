@@ -313,8 +313,7 @@ def check_dat_rows_against_db(
     columns_sql = ", ".join(quote_identifier(column) for column in insert_columns)
     copy_sql = f"COPY {temp_table_sql} ({columns_sql}) FROM STDIN"
     dat_duplicate_predicate = (
-        "t.property_number IS NULL "
-        "AND t.url_property_id IS NOT DISTINCT FROM s.url_property_id "
+        "t.url_property_id IS NOT DISTINCT FROM s.url_property_id "
         "AND t.sale_date IS NOT DISTINCT FROM s.sale_date "
         "AND t.sale_price IS NOT DISTINCT FROM s.sale_price "
         "AND COALESCE(t.dealing_number, '') = COALESCE(s.dealing_number, '')"
@@ -373,8 +372,7 @@ def upload_dat_rows_with_skip_report(
     prefixed_columns_sql = ", ".join(f"s.{quote_identifier(column)}" for column in insert_columns)
     copy_sql = f"COPY {temp_table_sql} ({columns_sql}) FROM STDIN"
     dat_duplicate_predicate = (
-        "t.property_number IS NULL "
-        "AND t.url_property_id IS NOT DISTINCT FROM s.url_property_id "
+        "t.url_property_id IS NOT DISTINCT FROM s.url_property_id "
         "AND t.sale_date IS NOT DISTINCT FROM s.sale_date "
         "AND t.sale_price IS NOT DISTINCT FROM s.sale_price "
         "AND COALESCE(t.dealing_number, '') = COALESCE(s.dealing_number, '')"

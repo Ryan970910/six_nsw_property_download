@@ -11,6 +11,14 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+DEFAULT_DB_CONNECTOR_SRC = Path(r"D:\projects\db_connector\src")
+DEFAULT_DB_HOST = "100.124.134.29"
+DEFAULT_DB_PORT = 5432
+DEFAULT_DB_NAME = "banner17_master"
+DEFAULT_DB_USER = "banner17"
+DEFAULT_DB_KEYRING_SERVICE = "banner17"
+DEFAULT_DB_KEYRING_USERNAME = "banner17"
+
 from six_nsw_property_download.db import DEFAULT_KEYRING_SERVICE, DEFAULT_PROPERTY_TABLE, PostgresConfig
 from six_nsw_property_download.env import load_env_files
 from six_nsw_property_download.logging_config import setup_logging
@@ -33,6 +41,11 @@ def main() -> None:
     parser.add_argument("--target-table", default=DEFAULT_PROPERTY_TABLE, help="Target PostgreSQL table.")
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Logging verbosity.")
     parser.add_argument("--log-file", default="logs\\weekly_dat_upload.log", help="Optional log file path.")
+    parser.add_argument(
+        "--db-connector-src",
+        default=str(DEFAULT_DB_CONNECTOR_SRC),
+        help="Path to the reusable db_connector src directory used to resolve DB credentials.",
+    )
     add_db_connection_args(parser)
 
     args = parser.parse_args()
@@ -107,7 +120,7 @@ def add_db_connection_args(parser: argparse.ArgumentParser) -> None:
 
 def build_db_config(args: argparse.Namespace) -> PostgresConfig:
     env_config = PostgresConfig.from_env()
-    return PostgresConfig(
+    config = PostgresConfig(
         host=args.db_host or env_config.host,
         port=args.db_port or env_config.port,
         database=args.db_name or env_config.database,
@@ -118,6 +131,47 @@ def build_db_config(args: argparse.Namespace) -> PostgresConfig:
         password_keyring_service=args.db_password_keyring_service or env_config.password_keyring_service,
         password_keyring_username=args.db_password_keyring_username or env_config.password_keyring_username,
     )
+
+    if args.dsn or args.db_host or args.db_name or args.db_user or args.db_password:
+        return config
+
+    return build_db_connector_config(args, config)
+
+
+def build_db_connector_config(args: argparse.Namespace, fallback: PostgresConfig) -> PostgresConfig:
+    connector_src = Path(args.db_connector_src)
+    if connector_src.exists() and str(connector_src) not in sys.path:
+        sys.path.insert(0, str(connector_src))
+
+    try:
+        from db_connector import DatabaseConfig
+    except ImportError as exc:
+        raise RuntimeError(f"Could not import db_connector from {connector_src}.") from exc
+
+    host = clean_env_value(fallback.host, "your_postgres_host") or DEFAULT_DB_HOST
+    database = clean_env_value(fallback.database, "your_database") or DEFAULT_DB_NAME
+    user = clean_env_value(fallback.user, "your_user") or DEFAULT_DB_USER
+    service = clean_env_value(fallback.password_keyring_service, "your_keyring_service") or DEFAULT_DB_KEYRING_SERVICE
+    username = clean_env_value(fallback.password_keyring_username, "your_keyring_username") or DEFAULT_DB_KEYRING_USERNAME
+
+    connector_config = DatabaseConfig(
+        host=host,
+        port=fallback.port or DEFAULT_DB_PORT,
+        database=database,
+        user=user,
+        password=fallback.password,
+        sslmode=fallback.sslmode,
+        dsn=fallback.dsn,
+        password_keyring_service=service,
+        password_keyring_username=username,
+    )
+    return PostgresConfig(dsn=connector_config.connection_info())
+
+
+def clean_env_value(value: str | None, placeholder: str) -> str | None:
+    if not value or value == placeholder:
+        return None
+    return value
 
 
 def parse_iso_date(value: str):
